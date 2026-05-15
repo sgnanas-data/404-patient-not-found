@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Patient Not Found - Clinical Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@700,500,400,300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=12">
+</head>
+<body>
+
+<!-- ───────────── SIDEBAR ───────────── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">
+            <span class="logo-icon">&#9764;</span>
+            <div>
+                <div class="logo-title">404 Patient</div>
+                <div class="logo-subtitle">NOT FOUND</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar-search">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="patientSearch" placeholder="Search patients..." autocomplete="off">
+    </div>
+
+    <nav class="sidebar-nav">
+        <div class="nav-section">OVERVIEW</div>
+        <a class="nav-item active" data-view="dashboard" onclick="showView('dashboard')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+        </a>
+        <a class="nav-item" data-view="patients" onclick="showView('patients')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Patients
+        </a>
+
+        <div class="nav-section">INTEROPERABILITY</div>
+        <a class="nav-item" data-view="hl7" onclick="showView('hl7')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            HL7 v2 Messages
+        </a>
+        <a class="nav-item" data-view="ai" onclick="showView('ai')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93"/><path d="M8.56 6.22A4 4 0 0 1 12 2"/><circle cx="12" cy="14" r="4"/><path d="M21 17.5a9 9 0 0 0-18 0"/></svg>
+            AI Summaries
+        </a>
+    </nav>
+
+    <div class="sidebar-patients" id="sidebarPatients">
+        <div class="nav-section">RECENT PATIENTS</div>
+        <div id="recentPatientsList"></div>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="sidebar-footer-info">
+            <span class="status-dot online"></span>
+            <span>FHIR R4 Connected</span>
+        </div>
+    </div>
+</aside>
+
+<!-- ───────────── MAIN CONTENT ───────────── -->
+<main class="main-content" id="mainContent">
+
+    <!-- TOP BAR -->
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <button class="sidebar-toggle" onclick="toggleSidebar()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <h1 class="page-title" id="pageTitle">Dashboard</h1>
+            <span class="page-subtitle" id="pageSubtitle">Clinical overview across all patients</span>
+        </div>
+        <div class="top-bar-right">
+            <div class="top-bar-stats">
+                <div class="tb-stat"><span class="tb-stat-label">Patients</span><span class="tb-stat-value" id="tbPatients">-</span></div>
+                <div class="tb-stat"><span class="tb-stat-label">Active Dx</span><span class="tb-stat-value" id="tbActiveDx">-</span></div>
+                <div class="tb-stat"><span class="tb-stat-label">Active Rx</span><span class="tb-stat-value" id="tbActiveRx">-</span></div>
+                <div class="tb-stat"><span class="tb-stat-label">Encounters</span><span class="tb-stat-value" id="tbEncounters">-</span></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══════ DASHBOARD VIEW ═══════ -->
+    <div class="view active" id="view-dashboard">
+        <!-- Stat Cards -->
+        <div class="stat-cards" id="statCards"></div>
+
+        <div class="grid-2col">
+            <!-- Top Conditions Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Top Clinical Conditions</h3>
+                    <span class="card-badge">ICD-10 / SNOMED</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="conditionsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Patient Demographics -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Patient Demographics</h3>
+                    <span class="card-badge">Population</span>
+                </div>
+                <div class="demographics-grid">
+                    <div class="demo-chart-wrap">
+                        <canvas id="genderChart"></canvas>
+                    </div>
+                    <div class="demo-chart-wrap">
+                        <canvas id="ageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-2col">
+            <!-- Top Medications -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Top Medications</h3>
+                    <span class="card-badge">RxNorm</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="medicationsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Encounter Types -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Encounter Classification</h3>
+                    <span class="card-badge">HL7 v3 ActCode</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="encounterChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Condition Status Grid -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Condition Severity Overview</h3>
+                <span class="card-subtitle">Clinical status distribution across patient population</span>
+            </div>
+            <div class="status-grid" id="conditionStatusGrid"></div>
+        </div>
+
+        <!-- Care Gaps & Clinical Alerts -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Care Gaps & Clinical Alerts</h3>
+                <span class="card-badge badge-red" id="alertCount" style="display:none">0</span>
+            </div>
+            <div id="alertsPanel" class="alerts-panel">
+                <div class="loading-state"><div class="loading-spinner"></div>Loading alerts...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ PATIENTS VIEW ═══════ -->
+    <div class="view" id="view-patients">
+        <div class="card">
+            <div class="card-header">
+                <h3>Patient Registry</h3>
+                <div class="card-header-actions">
+                    <input type="text" id="patientTableSearch" placeholder="Filter patients..." class="table-search">
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table" id="patientsTable">
+                    <thead>
+                        <tr>
+                            <th>Patient Name</th>
+                            <th>DOB</th>
+                            <th>Gender</th>
+                            <th>Location</th>
+                            <th>Conditions</th>
+                            <th>Medications</th>
+                            <th>Encounters</th>
+                            <th>Risk</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patientsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ PATIENT DETAIL VIEW ═══════ -->
+    <div class="view" id="view-patient-detail">
+        <div class="detail-header" id="detailHeader"></div>
+
+        <div class="detail-grid">
+            <div class="detail-left">
+                <!-- Active Conditions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Active Conditions</h3>
+                        <span class="card-badge badge-red" id="activeCondCount">0</span>
+                    </div>
+                    <div id="activeConditions" class="condition-list"></div>
+                </div>
+
+                <!-- Medications -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Current Medications</h3>
+                        <span class="card-badge badge-blue" id="activeMedCount">0</span>
+                    </div>
+                    <div id="activeMedications" class="medication-list"></div>
+                </div>
+
+                <!-- Recent Encounters -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Recent Encounters</h3>
+                    </div>
+                    <div id="recentEncounters" class="encounter-timeline"></div>
+                </div>
+            </div>
+
+            <div class="detail-right">
+                <!-- Vitals -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Recent Vitals & Labs</h3>
+                    </div>
+                    <div id="recentVitals" class="vitals-grid"></div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header"><h3>Interoperability</h3></div>
+                    <div class="quick-actions">
+                        <button class="btn btn-teal" onclick="viewHL7ForCurrent()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                            View HL7 v2 ADT
+                        </button>
+                        <button class="btn btn-purple" onclick="viewAIForCurrent()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="4"/><path d="M21 17.5a9 9 0 0 0-18 0"/></svg>
+                            Generate AI Summary
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ HL7 VIEW ═══════ -->
+    <div class="view" id="view-hl7">
+        <div class="grid-2col">
+            <div class="card">
+                <div class="card-header">
+                    <h3>HL7 v2.4 ADT Message Generator</h3>
+                </div>
+                <p class="card-description">Select a patient to generate an HL7 v2.4 ADT^A01 (Admit) message from their FHIR R4 data.</p>
+                <div class="patient-select-list" id="hl7PatientList"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3>Generated HL7 Message</h3>
+                    <span class="card-badge badge-green" id="hl7Badge" style="display:none">ADT^A01</span>
+                </div>
+                <div id="hl7Output" class="hl7-output">
+                    <div class="empty-state">Select a patient to generate an HL7 message</div>
+                </div>
+                <div id="hl7SegmentInfo" class="hl7-segment-info" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ AI VIEW ═══════ -->
+    <div class="view" id="view-ai">
+        <div class="grid-2col">
+            <div class="card">
+                <div class="card-header">
+                    <h3>AI Clinical Summary</h3>
+                    <span class="card-badge badge-purple">Claude API</span>
+                </div>
+                <p class="card-description">Select a patient to generate an AI-powered clinical summary using Claude.</p>
+                <div class="patient-select-list" id="aiPatientList"></div>
+            </div>
+            <div class="card card-ai">
+                <div class="card-header">
+                    <h3 id="aiSummaryTitle">Clinical Summary</h3>
+                    <span class="card-badge badge-purple" id="aiModel" style="display:none"></span>
+                </div>
+                <div id="aiOutput" class="ai-output">
+                    <div class="empty-state">Select a patient to generate a clinical summary</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<script src="/static/app.js?v=11"></script>
+</body>
+</html>
